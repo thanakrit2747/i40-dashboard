@@ -32,11 +32,10 @@ def extract_company_name(file):
     return "ไม่พบชื่อบริษัท"
 
 # =========================
-# STEP 3: EXTRACT DATA
+# STEP 3: EXTRACT DATA (SAFE VERSION)
 # =========================
 def extract_data(file):
     raw = pd.read_excel(file, sheet_name="Summary", header=None)
-    raw = raw.astype(str)
 
     metrics = [
         "Production Automation","Enterprise Automation","Facility Automation",
@@ -55,18 +54,24 @@ def extract_data(file):
         for i in range(raw.shape[0]):
             for j in range(raw.shape[1]):
 
-                if metric in raw.iloc[i, j]:
+                # 🔥 แปลงเป็น string แบบ safe
+                cell = str(raw.iloc[i, j])
+
+                if metric in cell:
 
                     for k in range(1, 6):
                         try:
                             val = raw.iloc[i, j+k]
+                            val_str = str(val)
 
-                            if val.replace('.', '', 1).isdigit():
-                                scores.append(float(val))
+                            # 🔥 กัน NaN + กันค่าประหลาด
+                            if val_str.replace('.', '', 1).isdigit():
+                                scores.append(float(val_str))
                                 found = True
                                 break
+
                         except:
-                            pass
+                            continue
 
                     if found:
                         break
@@ -77,10 +82,17 @@ def extract_data(file):
             scores.append(None)
 
     df = pd.DataFrame({"Metric": metrics, "Score": scores})
-    df = df.dropna()
-    df["Score"] = df["Score"].astype(float)
 
-    # 🔥 เพิ่มบรรทัดนี้ (ทศนิยม 1 ตำแหน่ง)
+    # 🔥 ลบค่า None
+    df = df.dropna()
+
+    # 🔥 แปลงเป็น float แบบปลอดภัย
+    df["Score"] = pd.to_numeric(df["Score"], errors="coerce")
+
+    # 🔥 ลบค่าที่ยังผิดพลาด
+    df = df.dropna()
+
+    # 🔥 ทศนิยม 1 ตำแหน่ง (ของที่นายต้องการ)
     df["Score"] = df["Score"].round(1)
 
     return df
